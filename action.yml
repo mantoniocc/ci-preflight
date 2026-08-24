@@ -18,17 +18,13 @@ runs:
   steps:
     - name: Resolver version de Node
       id: resolve
-      shell: bash
+      # `bash {0}` es la plantilla explicita: bash SIN ninguna bandera.
+      # Es el opt-out documentado del fail-fast.
+      shell: bash {0}
       run: |
-        set -euo pipefail   ← DELIBERADAMENTE COMENTADO
-
         cd "${{ inputs.working-directory }}"
         FILE="${{ inputs.node-version-file }}"
 
-        # Sin guard de existencia. Y con una TUBERIA, que es donde
-        # pipefail cambia el resultado: sin el, el exit status de la
-        # tuberia es el del ULTIMO comando (tr, que tiene exito),
-        # aunque el primero (cat) haya fallado.
         VERSION="$(cat "$FILE" | tr -d '[:space:]')"
 
         echo "Version resuelta: [$VERSION]"
