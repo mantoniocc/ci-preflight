@@ -26,7 +26,7 @@ runs:
       # Sin eto, un `cat`de un archivo inexistente imprime error y CONTINUA,
       # y la action reportaria exito con un valor vacio.
       run: |
-        #set -euo pipefail
+        set -euo pipefail
 
         cd "${{inputs.working-directory}}"
         FILE="${{inputs.node-version-file}}"
