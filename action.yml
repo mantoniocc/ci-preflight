@@ -14,7 +14,7 @@ runs:
   steps:
     - name: Resolver version de Node
       # Sin esta linea el archivo ni siquiera se valida. 
-      # shell: bash
+      shell: bash
       run: |
         echo "Archivo declarado: ${{inputs.node-version-file}}"
 
