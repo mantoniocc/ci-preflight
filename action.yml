@@ -20,7 +20,7 @@ runs:
       id: resolve
       shell: bash
       run: |
-        # set -euo pipefail   ← DELIBERADAMENTE COMENTADO
+        set -euo pipefail   ← DELIBERADAMENTE COMENTADO
 
         cd "${{ inputs.working-directory }}"
         FILE="${{ inputs.node-version-file }}"
