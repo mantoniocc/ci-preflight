@@ -18,16 +18,37 @@ runs:
   steps:
     - name: Resolver version de Node
       id: resolve
-      # `bash {0}` es la plantilla explicita: bash SIN ninguna bandera.
-      # Es el opt-out documentado del fail-fast.
       shell: bash
+      # `shell: bash` ya invoca el script con `--noprofile --norc -eo pipefail`,
+      # asi que -e y pipefail estan activos aunque no escribamos nada.
+      # Lo que esta linea SI agrega es -u: abortar si se usa una variable
+      # no definida. Sin el, un typo como $VERISON se expande a cadena vacia
+      # y el script continua con un valor incorrecto.
+      # Se deja completo (no solo `set -u`) para que el script siga siendo
+      # correcto si alguien lo copia fuera de este contexto.
       run: |
-        cd "${{ inputs.working-directory }}"
-        FILE="${{ inputs.node-version-file }}"
+        set -euo pipefail
 
-        VERSION="$(cat "$FILE" | tr -d '[:space:]')"
+        cd "${{inputs.working-directory}}"
+        FILE="${{inputs.node-version-file}}"
 
-        echo "Version resuelta: [$VERSION]"
+        if [[ ! -f "$FILE" ]]; then
+          # Mensaje accionable: dice que falta, donde lo busco y como arreglarlo.
+          echo "::error title=Archivo de version no encontrado::No existe '$FILE' en '$(pwd)'. Crealo con: echo 24 > $FILE"
+          exit 1
+        fi
+
+        # tr elimina espacios, tabs, saltos de linea y un posible \r de Windows.
+        # Un .nvmrc con salto de linea final no es normal, y sin esto la version
+        # resuelta seria "24\n", que setup-node rechaza con un error confuso.
+        VERSION="$(tr -d '[:space:]' < "$FILE")"
+
+        if [[ -z "$VERSION" ]]; then
+          echo "::error title=Archivo de version vacio::'$FILE' existe pero no contiene una version"
+          exit 1
+        fi
+
+        echo "Version resuelta: $VERSION (desde $FILE)"
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
     - name: Instalar Node
