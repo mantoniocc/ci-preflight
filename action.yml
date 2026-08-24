@@ -18,3 +18,12 @@ runs:
       run: |
         echo "Archivo declarado: ${{inputs.node-version-file}}"
 
+    - name: Inspeccionar rutas
+      shell: bash
+      run: |
+        echo "action_path       = ${{github.action_path}}"
+        echo "workspace         = $GITHUB_WORKSPACE"
+        echo "pwd               = $(pwd)"
+        echo "--- contenido del workspace ---"
+        ls -la "$GITHUB_WORKSPACE" || echo "(vacio o inexistente)"
+
