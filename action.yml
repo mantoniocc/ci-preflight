@@ -20,7 +20,7 @@ runs:
       id: resolve
       # `bash {0}` es la plantilla explicita: bash SIN ninguna bandera.
       # Es el opt-out documentado del fail-fast.
-      shell: bash {0}
+      shell: bash
       run: |
         cd "${{ inputs.working-directory }}"
         FILE="${{ inputs.node-version-file }}"
