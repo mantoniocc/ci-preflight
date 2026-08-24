@@ -1,0 +1,16 @@
+name: Smoke
+
+on:
+    push: 
+    workflow_dispatch: 
+
+permissions: 
+    contents: read
+
+jobs:
+    smoke:
+        runs-on: ubuntu-24.04
+        steps:
+            # Sin checkout. Deliberado: si $/ fnciona como dice la documentacion,
+            # no necesita que los archivos esten en el disco.
+            - uses: $/

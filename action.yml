@@ -1,0 +1,20 @@
+name: CI Preflight
+description: Prepara el entorno de CI resolviendo la versin de Node desde un archivo del reposiorio
+
+inputs:
+  node-version-file:
+    description: Ruta relativa al archivo que declara la version de Node
+    required: false
+    # Default deliberado: .nvmrc es la convencion mas extendida y es el mismo
+    # archivo que usa nvm localmente. Un solo archivo gobierna local y CI.
+    default: .nvmrc
+
+runs:
+  using: composite
+  steps:
+    - name: Resolver version de Node
+      # Sin esta linea el archivo ni siquiera se valida. 
+      # shell: bash
+      run: |
+        echo "Archivo declarado: ${{inputs.node-version-file}}"
+
