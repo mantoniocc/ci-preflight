@@ -19,35 +19,19 @@ runs:
     - name: Resolver version de Node
       id: resolve
       shell: bash
-      # `set -euo pipefail` no es decorativo:
-      #   -e          aborta ante el primer comando que falle
-      #   -u          aborta si se usa una variable no definida
-      #   -o pipefail hace que una tuberia falle si falla cualquier eslabon
-      # Sin eto, un `cat`de un archivo inexistente imprime error y CONTINUA,
-      # y la action reportaria exito con un valor vacio.
       run: |
-        set -euo pipefail
+        # set -euo pipefail   ← DELIBERADAMENTE COMENTADO
 
-        cd "${{inputs.working-directory}}"
-        FILE="${{inputs.node-version-file}}"
+        cd "${{ inputs.working-directory }}"
+        FILE="${{ inputs.node-version-file }}"
 
-        if [[ ! -f "$FILE" ]]; then
-          # Mensaje accionable: dice que falta, donde lo busco y como arreglarlo.
-          echo "::error title=Archivo de version no encontrado::No existe '$FILE' en '$(pwd)'. Crealo con: echo 24 > $FILE"
-          exit 1
-        fi
+        # Sin guard de existencia. Y con una TUBERIA, que es donde
+        # pipefail cambia el resultado: sin el, el exit status de la
+        # tuberia es el del ULTIMO comando (tr, que tiene exito),
+        # aunque el primero (cat) haya fallado.
+        VERSION="$(cat "$FILE" | tr -d '[:space:]')"
 
-        # tr elimina espacios, tabs, saltos de linea y un posible \r de Windows.
-        # Un .nvmrc con salto de linea final no es normal, y sin esto la version
-        # resuelta seria "24\n", que setup-node rechaza con un error confuso.
-        VERSION="$(tr -d '[:space:]' < "$FILE")"
-
-        if [[ -z "$VERSION" ]]; then
-          echo "::error title=Archivo de version vacio::'$FILE' existe pero no contiene una version"
-          exit 1
-        fi
-
-        echo "Version resuelta: $VERSION (desde $FILE)"
+        echo "Version resuelta: [$VERSION]"
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
     - name: Instalar Node
