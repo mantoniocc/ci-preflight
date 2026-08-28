@@ -1,0 +1,15 @@
+version: 2
+
+updates:
+  # 'github-actions' cubre tant los workflows de .github/workflows/
+  # como el action.yml de una composite action. Lo verificamos abajo.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # Agrupar evita cinco PRs separados por cinco bumps de patch.
+    groups:
+      actions:
+        patterns: ['*']
+    commit-message:
+      prefix: 'chore(deps)'
