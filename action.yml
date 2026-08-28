@@ -13,6 +13,39 @@ inputs:
     # '.' significa la raiz del workspace del consumidor, no la de la action.
     default: '.'
 
+  install:
+    description: Si ejecutar la instalacion de dependencias. Usar 'false' para solo preparar el entorno
+    required: false
+    # Los inputs SIEMPRE llegan como string. No existe el booleano true
+    # en este contexto: llega la cadena "true". Todas las comparaciones
+    # de mas abajo son contra strings, deliberadamente.
+    default: 'true'
+
+  cache:
+    description: Si restaurar y guardar el cache de dependencias
+    required: false
+    default: 'true'
+
+  cache-key-prefix:
+    description: Prefijo de la clave de cache, para aislar entre proyectos
+    required: false
+    default: npm
+
+outputs:
+  node-version:
+    description: Version de Node que quedo instalada
+    # La indireccion: el consumidor ve 'node-version', nosotros
+    # podemos renombrar el step 'resolve' sin romperlo.
+    value: ${{steps.resolve.outputs.version}}
+
+  cache-hit:
+    description: "'true' si el cache se restauro con coincidencia exacta"
+    value: ${{steps.cache.outputs.cache-hit}}
+
+  dependencies-installed:
+    description: "'true' si esta action ejecuto la instalacion de dependencias"
+    value: ${{steps.install.outputs.installed}}
+
 runs:
   using: composite
   steps:
@@ -51,6 +84,41 @@ runs:
         echo "Version resuelta: $VERSION (desde $FILE)"
         echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+    - name: Validar manifiestos npm
+      id: manifest
+      shell: bash
+      run: |
+        set -euo pipefail
+        cd "${{inputs.working-directory}}"
+
+        if [[ ! -f package.json ]]; then
+          echo "::error title=package.json no encontrado::No existe package.json en '$(pwd)'. Si este proyecto no es de Node, no uses esta action."
+          exit 1
+        fi
+
+        # npm acepta dos nombres de lockfile. shrinkwrap tiene prioridad
+        # porque es el que se publica con el paquete.
+        if [[ -f npm-shrinkwrap.json ]]; then
+          LOCKFILE=npm-shrinkwrap.json
+        elif [[ -f package-lock.json ]]; then
+          LOCKFILE=package-lock.json
+        else
+          echo "::error title=Lockfile no encontrado::npm ci requiere un lockfile. Generalo con npm install --package-lock-only"
+          exit 1
+        fi
+
+        # lockfileVersion 1 es de npm 6. No incluye el arbol completo con
+        # datos de integridad, asi que 'npm ci' no puede garantizar builds
+        # reproducibles. Este NO lo detecta npm ci: instala igual.
+        LOCK_VERSION="$(node -p "require('./$LOCKFILE').lockfileVersion || 1")"
+        if (( LOCK_VERSION < 2 )); then
+          echo "::error title=Lockfile obsoleto::$LOCKFILE usa lockfileVersion $LOCK_VERSION. Regeneralo con npm 7 o superior: rm $LOCKFILE && npm install"
+          exit 1
+        fi
+
+        echo "Lockfile: $LOCKFILE (version $LOCK_VERSION.)"
+        echo "lockfile=$LOCKFILE" >> "$GITHUB_OUTPUT"
+
     - name: Instalar Node
       uses: actions/setup-node@v7
       with:
@@ -60,12 +128,93 @@ runs:
         # setup-node v7 lo activa por defecto.
         package-manager-cache: false
 
-    - name: Confirmar version instalada
+    - name: Verificar version instalada
       shell: bash
       run: |
         set -euo pipefail
-        echo "node: $(node --version)"
-        echo "npm: $(npm --version)"
+        ESPERADA="${{steps.resolve.outputs.version}}"
+        # node --version imprime "v24.5.0"; quitamos la v inicial.
+        INSTALADA="$(node --version | sed 's/^v//')"
+
+        # Comparacion por prefijo: el .nvmrc puede decir 24 y estar
+        # instalado 24.5.0. Un match exacto seria demasiado estricto.
+        # El punto extra evita que "2" haga match con "24".
+        if [[ "$INSTALADA." != "$ESPERADA."* && "$INSTALADA" != "$ESPERADA"* ]]; then
+          echo "::error title=Version instalada no coincide::Se resolvio '$ESPERADA' pero quedo instalada '$INSTALADA'"
+          exit 1
+        fi
+
+        echo "Verificado: $INSTALADA satisface $ESPERADA"
+
+    - name: Restaurar cache de dependencias
+      id: cache
+      # 'if' en composite steps SI funciona. El input es string, por eso
+      # comparamos contra 'true' y no confiamos en la truthiness.
+      if: inputs.cache == 'true'
+      uses: actions/cache@v5
+      with:
+        # ~/.npm, no node_modules.
+        path: ~/.npm
+        # hashFiles resuelve rutas relativas a GITHUB_WORKSPACE,
+        # no al directorio de la action.
+        key: ${{ inputs.cache-key-prefix }}-${{ runner.os }}-node${{ steps.resolve.outputs.version }}-${{ hashFiles(format('{0}/**/package-lock.json', inputs.working-directory), format('{0}/**/npm-shrinkwrap.json', inputs.working-directory)) }}
+        # restore-keys permite un hit PARCIAL: si el lockfile cambio,
+        # recupera el cache del lockfile anterior, npm solo descarga
+        # el delta en vez de todo. Sin esto, cualquier cambio de
+        # dependencia significa descargar el arbol completo
+        restore-keys: |
+          ${{inputs.cache-key-prefix}}-${{runner.os}}-node${{steps.resolve.outputs.version}}
+          ${{inputs.cache-key-prefix}}-${{runner.os}}-
+
+    - name: Instalar dependencias
+      id: install
+      if: inputs.install == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        cd "${{inputs.working-directory}}"
+
+        # npm ci, no npm install:
+        #   - install PUEDE modificar el lockfile; ci nunca lo hace
+        #   - ci borra node_modules antes, evitando estado residual
+        #   - ci falla si el lockfile no coincide con package.json
+        # En CI queremos la version que no improvisa.
+        npm ci
+
+        echo "installed=true" >> "$GITHUB_OUTPUT"
+
+    - name: Marcar instalacion omitida
+      # El else del step anterior. Sin esto, el output 'dependencies-installed'
+      # queda vacio cuando install=false, y el consumidor no puede
+      # distinguir "no se instalo" de "la action fallo antes de llegar aqui".
+      if: inputs.install != 'true'
+      id: install-skipped
+      shell: bash
+      run: echo "Instalacion omitida por input install=false"
+
+    - name: Escribir resumen
+      # `if: always()` hace que el resumen se escriba incluso si un step
+      # anterior fallo. Sin esto, justo cuando mas necesitas el resumen
+      # (una corrida fallida) es cuand no lo tienes
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        {
+          echo "### CI Preflight"
+          echo ""
+          echo "| Elemento | Valor |"
+          echo "|---|---|"
+          echo "| Version resuelta | \`${{ steps.resolve.outputs.version || 'no resuelta' }}\` |"
+          echo "| Archivo de version | \`${{ inputs.node-version-file }}\` |"
+          echo "| Lockfile | \`${{ steps.manifest.outputs.lockfile || 'no detectado' }}\` |"
+          echo "| Cache | \`${{ steps.cache.outputs.cache-hit || 'sin datos' }}\` |"
+          echo "| Dependencias instaladas | \`${{ steps.install.outputs.installed || 'no' }}\` |"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+
+
 
 
 
