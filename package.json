@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "description": "Fixture para probar la action contra si misma",
   "devDependencies": {
-    "cowsay": "^1.6.0"
+    "cowsay": "^1.6.0",
+    "figlet": "^1.11.4"
   }
 }
