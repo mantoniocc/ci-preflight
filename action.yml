@@ -63,7 +63,7 @@ runs:
         set -euo pipefail
 
         cd "${{inputs.working-directory}}"
-        FILE="${{inputs.node-version-file}}.backup"
+        FILE="${{inputs.node-version-file}}"
 
         if [[ ! -f "$FILE" ]]; then
           # Mensaje accionable: dice que falta, donde lo busco y como arreglarlo.
