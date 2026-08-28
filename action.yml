@@ -157,14 +157,14 @@ runs:
         path: ~/.npm
         # hashFiles resuelve rutas relativas a GITHUB_WORKSPACE,
         # no al directorio de la action.
-        key: ${{ inputs.cache-key-prefix }}-${{ runner.os }}-node${{ steps.resolve.outputs.version }}-${{ hashFiles(format('{0}/**/package-lock.json', inputs.working-directory), format('{0}/**/npm-shrinkwrap.json', inputs.working-directory)) }}
+        key: ${{ inputs.cache-key-prefix }}-${{ runner.os }}-${{ runner.arch }}-node${{ steps.resolve.outputs.version }}-${{ hashFiles(format('{0}/**/package-lock.json', inputs.working-directory), format('{0}/**/npm-shrinkwrap.json', inputs.working-directory)) }}
         # restore-keys permite un hit PARCIAL: si el lockfile cambio,
         # recupera el cache del lockfile anterior, npm solo descarga
         # el delta en vez de todo. Sin esto, cualquier cambio de
         # dependencia significa descargar el arbol completo
         restore-keys: |
-          ${{inputs.cache-key-prefix}}-${{runner.os}}-node${{steps.resolve.outputs.version}}
-          ${{inputs.cache-key-prefix}}-${{runner.os}}-
+          ${{inputs.cache-key-prefix}}-${{runner.os}}-${{ runner.arch }}-node${{steps.resolve.outputs.version}}-
+          ${{inputs.cache-key-prefix}}-${{runner.os}}-${{ runner.arch }}-
 
     - name: Instalar dependencias
       id: install
@@ -174,12 +174,13 @@ runs:
       # lo que un contrato publico necesita
       env:
         INSTALL: ${{inputs.install}}
+        WORKDIR: ${{inputs.working-directory}}
       run: |
         set -euo pipefail
-        cd "${{inputs.working-directory}}"
+        cd "$WORKDIR"
 
-        if [[ $INSTALL != 'true' ]]; then
-          echo "Instalacion omitida (install=$INSTALL)"
+        if [[ "$INSTALL" != 'true' ]]; then
+          echo "Instalacion omitida (install="$INSTALL")"
           echo "installed=false" >> "$GITHUB_OUTPUT"
           exit 0
         fi
