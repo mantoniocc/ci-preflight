@@ -1,7 +1,14 @@
 name: Smoke
 
 on:
-    push: 
+    push:
+        # Sin esto, cada cambio al README consume minutos y ensucia
+        # el historial de runs, Con `path-ignore` el workflow se
+        # salta los cambios que no pueden afecar el comportamiento.
+        paths-ignore: 
+            - '**.md'
+            - 'docs/**'
+            - LICENCE
     workflow_dispatch: 
 
 permissions: 
