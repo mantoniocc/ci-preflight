@@ -13,3 +13,12 @@ jobs:
         steps:
             - uses: actions/checkout@v7
             - uses: $/
+              id: pre
+              with:
+                install: 'false'
+
+            - shell: bash
+              run: |
+                echo "node-version              = [${{steps.pre.outputs.node-version}}]"
+                echo "cache-hit                 = [${{steps.pre.outputs.cache-hit}}]"
+                echo "dependencies-installed    = [${{steps.pre.outputs.dependencies-installed}}]"

@@ -213,15 +213,6 @@ runs:
           echo "| Dependencias instaladas | \`${{ steps.install.outputs.installed || 'no' }}\` |"
         } >> "$GITHUB_STEP_SUMMARY"
 
-    - name: Step que falla a proposito
-      shell: bash
-      continue-on-error: true
-      run: exit 1
-
-    - name: Step posterior
-      shell: bash
-      run: echo "Si ves esto, continue-on-error funciono"
-
 
 
 
