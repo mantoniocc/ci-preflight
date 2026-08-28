@@ -31,11 +31,6 @@ inputs:
     required: false
     default: npm
 
-  token:
-    description: Token de prueba
-    required: true
-    # Sin default, a proposito
-
 outputs:
   node-version:
     description: Version de Node que quedo instalada
@@ -54,11 +49,6 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Probar input requerido
-      shell: bash
-      run: |
-        echo "token recibido: [${{inputs.token}}]"
-
     - name: Resolver version de Node
       id: resolve
       shell: bash
@@ -222,6 +212,15 @@ runs:
           echo "| Cache | \`${{ steps.cache.outputs.cache-hit || 'sin datos' }}\` |"
           echo "| Dependencias instaladas | \`${{ steps.install.outputs.installed || 'no' }}\` |"
         } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Step que falla a proposito
+      shell: bash
+      continue-on-error: true
+      run: exit 1
+
+    - name: Step posterior
+      shell: bash
+      run: echo "Si ves esto, continue-on-error funciono"
 
 
 
