@@ -168,11 +168,21 @@ runs:
 
     - name: Instalar dependencias
       id: install
-      if: inputs.install == 'true'
       shell: bash
+      # Sin `if:`. El step SIEMPRE corre; adentro decide que hacer.
+      # Asi el output existe en todos los caminos, que es justo
+      # lo que un contrato publico necesita
+      env:
+        INSTALL: ${{inputs.install}}
       run: |
         set -euo pipefail
         cd "${{inputs.working-directory}}"
+
+        if [[ $INSTALL != 'true' ]]; then
+          echo "Instalacion omitida (install=$INSTALL)"
+          echo "installed=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
 
         # npm ci, no npm install:
         #   - install PUEDE modificar el lockfile; ci nunca lo hace
@@ -182,15 +192,6 @@ runs:
         npm ci
 
         echo "installed=true" >> "$GITHUB_OUTPUT"
-
-    - name: Marcar instalacion omitida
-      # El else del step anterior. Sin esto, el output 'dependencies-installed'
-      # queda vacio cuando install=false, y el consumidor no puede
-      # distinguir "no se instalo" de "la action fallo antes de llegar aqui".
-      if: inputs.install != 'true'
-      id: install-skipped
-      shell: bash
-      run: echo "Instalacion omitida por input install=false"
 
     - name: Escribir resumen
       # `if: always()` hace que el resumen se escriba incluso si un step
