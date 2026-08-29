@@ -216,6 +216,29 @@ git ls-remote --tags origin | sort -k2
 
 ---
 
+## Limitaciones internas conocidas
+
+Fragilidades de la implementación que no afectan el contrato público y no están
+documentadas en el README, porque el consumidor no puede actuar sobre ellas.
+
+### El guard de manifiestos depende del Node preinstalado del runner
+
+El step `Validar manifiestos npm` usa `node -p` para leer `lockfileVersion`,
+pero se ejecuta **antes** de `setup-node`. Funciona porque las imágenes de los
+runners GitHub-hosted traen Node preinstalado.
+
+| | |
+|---|---|
+| Riesgo | Falla en un runner self-hosted sin Node, o si alguien reordena los steps |
+| Mitigación evaluada | Mover el guard después de `setup-node` |
+| Por qué no se aplicó | Perderíamos el fail-fast: el objetivo del guard es abortar antes de instalar Node, que es la operación cara |
+| Alternativa futura | Reemplazar `node -p` por `grep`/`sed` sobre el JSON, a costa de robustez del parseo |
+
+Si se reordenan los steps, verificar que este guard siga ejecutándose antes de
+`setup-node`.
+
+---
+
 ## Estructura del repositorio
 
 ```
